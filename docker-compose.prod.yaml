@@ -1,0 +1,50 @@
+# Production deployment. Unlike docker-compose.yml (dev defaults, open DB
+# port, APP_ENV=development), this requires every secret/credential to come
+# from .env — nothing here has a fallback, so it fails loudly if .env is
+# incomplete, per the Production checklist in README.md.
+#
+#   cp .env.example .env
+#   # fill in SESSION_SECRET, GOOGLE_*, BASE_URL=https://..., POSTGRES_*
+#   docker compose -f docker-compose.prod.yaml up -d --build
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    # No "ports:" — only the app container can reach Postgres, over the
+    # compose network. Connect from the host with `docker compose exec db psql ...`.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:?set POSTGRES_DB in .env}?sslmode=disable
+      BASE_URL: ${BASE_URL:?set BASE_URL=https://your-domain in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env (openssl rand -base64 48)}
+      ADDR: ":3000"
+      UPLOAD_DIR: /app/data/uploads
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads:/app/data/uploads
+
+volumes:
+  pgdata:
+  uploads:
