@@ -1,0 +1,191 @@
+package view
+
+import "github.com/yourname/fiberblog/internal/models"
+
+// CSRFField embeds the session's CSRF token in a form.
+templ CSRFField(token string) {
+	if token != "" {
+		<input type="hidden" name="_csrf" value={ token }/>
+	}
+}
+
+// Avatar shows a profile picture or initials. size: "", "small" or "large".
+templ Avatar(u *models.User, size string) {
+	<figure data-variant="avatar" class={ size } aria-label={ u.Name }>
+		if u.AvatarURL != "" {
+			<img src={ u.AvatarURL } alt="" referrerpolicy="no-referrer" loading="lazy"/>
+		} else {
+			<abbr title={ u.Name }>{ u.Initials() }</abbr>
+		}
+	</figure>
+}
+
+// TagList renders tags as linked badges.
+templ TagList(tags []models.Tag) {
+	if len(tags) > 0 {
+		<ul class="tag-list unstyled" aria-label="Tags">
+			for _, t := range tags {
+				<li><a class="badge" data-variant="secondary" href={ tagURL(t) }>{ "#" + t.Name }</a></li>
+			}
+		</ul>
+	}
+}
+
+// Byline shows author, date and reading time.
+templ Byline(p *models.Post) {
+	<div class="byline">
+		if p.Author != nil {
+			<a href={ userURL(p.Author) } class="unstyled byline-author">
+				@Avatar(p.Author, "small")
+				<span>{ p.Author.Name }</span>
+			</a>
+		}
+		<span class="byline-meta">
+			<time datetime={ isoDate(p.DisplayDate()) }>{ formatDate(p.DisplayDate()) }</time>
+			<span class="reading-time" title="Reading time">
+				@iconClock()
+				{ itoa(p.ReadingMinutes) } min
+			</span>
+		</span>
+	</div>
+}
+
+// PostCounts shows likes and comments.
+templ PostCounts(p *models.Post) {
+	<span class="counts text-light">
+		<span title={ plural(p.LikeCount, "like") }>
+			@iconHeart()
+			{ itoa(p.LikeCount) }
+		</span>
+		<span title={ plural(p.CommentCount, "comment") }>
+			@iconComment()
+			{ itoa(p.CommentCount) }
+		</span>
+	</span>
+}
+
+// PostCard is a post teaser used in lists.
+templ PostCard(p *models.Post) {
+	<article class="card post-card">
+		if p.CoverImage != "" {
+			<a href={ postURL(p) } class="post-card-cover" tabindex="-1" aria-hidden="true">
+				<img src={ p.CoverImage } alt="" loading="lazy"/>
+			</a>
+		}
+		<div class="post-card-body">
+			@TagList(p.Tags)
+			<h3 class="post-card-title"><a class="unstyled" href={ postURL(p) }>{ p.Title }</a></h3>
+			if p.Excerpt != "" {
+				<p class="text-light post-card-excerpt">{ p.Excerpt }</p>
+			}
+		</div>
+		<footer class="post-card-footer">
+			@Byline(p)
+			@PostCounts(p)
+		</footer>
+	</article>
+}
+
+// PostGrid lays out post cards responsively.
+templ PostGrid(posts []models.Post) {
+	<div class="post-grid">
+		for i := range posts {
+			@PostCard(&posts[i])
+		}
+	</div>
+}
+
+// Pagination renders page links for a Pager.
+templ Pagination(pg Pager) {
+	if pg.Pages() > 1 {
+		<nav aria-label="Pagination" class="pagination">
+			<menu class="buttons">
+				if pg.HasPrev() {
+					<li><a class="button outline small" href={ pg.URL(pg.Number - 1) } rel="prev">← Prev</a></li>
+				}
+				for _, n := range pg.Window() {
+					if n == 0 {
+						<li><span class="button outline small" aria-hidden="true">…</span></li>
+					} else if n == pg.Number {
+						<li><a class="button small" aria-current="page" href={ pg.URL(n) }>{ itoa(n) }</a></li>
+					} else {
+						<li><a class="button outline small" href={ pg.URL(n) }>{ itoa(n) }</a></li>
+					}
+				}
+				if pg.HasNext() {
+					<li><a class="button outline small" href={ pg.URL(pg.Number + 1) } rel="next">Next →</a></li>
+				}
+			</menu>
+		</nav>
+	}
+}
+
+// EmptyState is shown when a list has no items. Children render as actions.
+templ EmptyState(title, message string) {
+	<article class="card empty-state">
+		<h3>{ title }</h3>
+		<p class="text-light">{ message }</p>
+		<div class="hstack justify-center">
+			{ children... }
+		</div>
+	</article>
+}
+
+// ConfirmOpts configures ConfirmAction.
+type ConfirmOpts struct {
+	ID      string // unique dialog id
+	Trigger string // trigger button label
+	Title   string
+	Message string
+	Action  string // form action URL (POST)
+	CSRF    string
+	Next    string // optional redirect target after the action
+	Confirm string // confirm button label
+	Small   bool
+}
+
+// ConfirmAction is a danger button that opens a native <dialog> to confirm
+// before POSTing.
+templ ConfirmAction(o ConfirmOpts) {
+	<button
+		type="button"
+		class={ "outline", templ.KV("small", o.Small) }
+		data-variant="danger"
+		commandfor={ o.ID }
+		command="show-modal"
+		aria-label={ o.Confirm }
+	>
+		@iconTrash()
+		{ o.Trigger }
+	</button>
+	<dialog id={ o.ID } closedby="any" aria-labelledby={ o.ID + "-title" }>
+		<form method="post" action={ templ.SafeURL(o.Action) }>
+			@CSRFField(o.CSRF)
+			if o.Next != "" {
+				<input type="hidden" name="next" value={ o.Next }/>
+			}
+			<header>
+				<h3 id={ o.ID + "-title" }>{ o.Title }</h3>
+			</header>
+			<div>
+				<p>{ o.Message }</p>
+			</div>
+			<footer>
+				<button type="button" class="outline" commandfor={ o.ID } command="close">Cancel</button>
+				<button type="submit" data-variant="danger">{ o.Confirm }</button>
+			</footer>
+		</form>
+	</dialog>
+}
+
+// fieldError shows a validation message below an input.
+templ fieldError(errs map[string]string, key string) {
+	if msg, ok := errs[key]; ok {
+		<small class="error" id={ key + "-error" }>{ msg }</small>
+	}
+}
+
+func hasErr(errs map[string]string, key string) bool {
+	_, ok := errs[key]
+	return ok
+}

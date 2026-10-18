@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: blog
+          POSTGRES_PASSWORD: blog
+          POSTGRES_DB: blog_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U blog -d blog_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Templates are up to date
+        run: |
+          go tool templ generate
+          git diff --exit-code -- '*_templ.go'
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test (SQLite)
+        run: go test -race ./...
+
+      - name: Test (PostgreSQL)
+        env:
+          TEST_DATABASE_URL: postgres://blog:blog@localhost:5432/blog_test?sslmode=disable
+        run: go test ./internal/store/...
+
+      - name: Build
+        run: CGO_ENABLED=0 go build -o bin/app ./cmd/app

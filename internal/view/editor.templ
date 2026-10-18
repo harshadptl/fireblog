@@ -1,0 +1,208 @@
+package view
+
+import "github.com/yourname/fiberblog/internal/models"
+
+func editorAction(d EditorData) string {
+	if d.IsNew() {
+		return "/posts"
+	}
+	return postURL(d.Post)
+}
+
+templ EditorPage(b Base, d EditorData) {
+	@Layout(b) {
+		<form
+			method="post"
+			action={ templ.SafeURL(editorAction(d)) }
+			enctype="multipart/form-data"
+			class="editor"
+			data-editor
+			novalidate
+		>
+			@CSRFField(b.CSRF)
+			<div class="editor-head">
+				<div>
+					if d.IsNew() {
+						<h1>New post</h1>
+					} else {
+						<a href={ postURL(d.Post) } class="text-light back-link">
+							@iconArrowLeft()
+							Back to post
+						</a>
+						<h1>Edit post</h1>
+					}
+				</div>
+				@editorButtons(d)
+			</div>
+			if len(d.Errors) > 0 {
+				<div role="alert" data-variant="error" class="mb-4">
+					<strong>Please fix the highlighted fields.</strong>
+				</div>
+			}
+			<div class="editor-grid">
+				<div class="editor-main">
+					<div
+						data-field
+						if hasErr(d.Errors, "title") {
+							aria-invalid="true"
+						}
+					>
+						<label for="title">Title</label>
+						<input
+							id="title"
+							name="title"
+							type="text"
+							value={ d.Form.Title }
+							maxlength="200"
+							required
+							autofocus?={ d.IsNew() }
+							placeholder="An irresistible headline"
+							class="title-input"
+							if hasErr(d.Errors, "title") {
+								aria-invalid="true"
+								aria-describedby="title-error"
+							}
+						/>
+						@fieldError(d.Errors, "title")
+					</div>
+					<div
+						data-field
+						if hasErr(d.Errors, "content") {
+							aria-invalid="true"
+						}
+					>
+						<ot-tabs class="editor-tabs">
+							<div role="tablist" aria-label="Editor mode">
+								<button type="button" role="tab">Write</button>
+								<button type="button" role="tab" data-preview-tab>Preview</button>
+							</div>
+							<div role="tabpanel">
+								<label for="content" class="sr-only">Content (Markdown)</label>
+								<textarea
+									id="content"
+									name="content"
+									rows="22"
+									class="editor-textarea"
+									placeholder="Write your story in Markdown…"
+									if hasErr(d.Errors, "content") {
+										aria-invalid="true"
+										aria-describedby="content-error"
+									}
+								>{ d.Form.Content }</textarea>
+								@fieldError(d.Errors, "content")
+								<small data-hint>
+									Markdown supported: **bold**, _italic_, # headings, lists, `code`, ```fenced blocks```, tables and [links](https://…).
+									<span class="hide-sm">Press Ctrl/⌘+S to save.</span>
+								</small>
+							</div>
+							<div role="tabpanel">
+								<div class="prose preview" data-preview aria-live="polite">
+									<p class="text-light">Loading preview…</p>
+								</div>
+							</div>
+						</ot-tabs>
+					</div>
+				</div>
+				<aside class="editor-side">
+					<article class="card">
+						<h4>Details</h4>
+						<div
+							data-field
+							if hasErr(d.Errors, "excerpt") {
+								aria-invalid="true"
+							}
+						>
+							<label for="excerpt">Summary</label>
+							<textarea id="excerpt" name="excerpt" rows="3" maxlength="300" placeholder="Shown on cards and in search results. Leave blank to auto-generate.">{ d.Form.Excerpt }</textarea>
+							@fieldError(d.Errors, "excerpt")
+						</div>
+						<div
+							data-field
+							if hasErr(d.Errors, "slug") {
+								aria-invalid="true"
+							}
+						>
+							<label for="slug">URL slug</label>
+							<input id="slug" name="slug" type="text" value={ d.Form.Slug } placeholder="auto-from-title" pattern="[a-zA-Z0-9\-]*"/>
+							@fieldError(d.Errors, "slug")
+							<small data-hint>/posts/<em>{ slugHint(d.Form.Slug) }</em></small>
+						</div>
+						<div
+							data-field
+							if hasErr(d.Errors, "tags") {
+								aria-invalid="true"
+							}
+						>
+							<label for="tags-input">Tags</label>
+							<ot-taginput value={ d.Form.Tags } data-tags>
+								<input id="tags-input" name="tags" value={ d.Form.Tags } placeholder="Add a tag, press Enter" maxlength="32"/>
+							</ot-taginput>
+							@fieldError(d.Errors, "tags")
+						</div>
+					</article>
+					<article class="card">
+						<h4>Cover image</h4>
+						<div
+							data-field
+							if hasErr(d.Errors, "cover_image") {
+								aria-invalid="true"
+							}
+						>
+							if d.Form.CoverImage != "" {
+								<img src={ d.Form.CoverImage } alt="Current cover" class="cover-preview"/>
+							}
+							<label for="cover_image">Image URL</label>
+							<input id="cover_image" name="cover_image" type="text" inputmode="url" value={ d.Form.CoverImage } placeholder="https://…"/>
+							@fieldError(d.Errors, "cover_image")
+						</div>
+						<ot-upload class="cover-upload">
+							<input type="file" name="cover_file" accept="image/jpeg,image/png,image/gif,image/webp"/>
+							<button type="button" class="outline small">Upload image</button>
+							<div data-files><small data-hint>…or drop a file here (max 5 MB)</small></div>
+						</ot-upload>
+					</article>
+				</aside>
+			</div>
+		</form>
+		if !d.IsNew() {
+			<section class="card danger-zone mt-8" aria-labelledby="danger-heading">
+				<div>
+					<h4 id="danger-heading">Danger zone</h4>
+					<p class="text-light">Deleting a post also removes its comments and likes. This can't be undone.</p>
+				</div>
+				@ConfirmAction(ConfirmOpts{
+					ID:      "delete-post",
+					Trigger: "Delete post",
+					Title:   "Delete this post?",
+					Message: "This permanently removes the post, its comments and likes.",
+					Action:  postURL(d.Post) + "/delete",
+					CSRF:    b.CSRF,
+					Next:    "/dashboard",
+					Confirm: "Delete post",
+					Small:   true,
+				})
+			</section>
+		}
+	}
+}
+
+// editorButtons: the first submit button is the default for Enter / Ctrl+S,
+// so it always keeps the current status.
+templ editorButtons(d EditorData) {
+	<div class="hstack editor-actions">
+		if d.IsNew() || !d.Post.IsPublished() {
+			<button type="submit" name="status" value={ models.StatusDraft } class="outline">Save draft</button>
+			<button type="submit" name="status" value={ models.StatusPublished } data-variant="primary">Publish</button>
+		} else {
+			<button type="submit" name="status" value={ models.StatusPublished } data-variant="primary">Update</button>
+			<button type="submit" name="status" value={ models.StatusDraft } class="outline">Unpublish</button>
+		}
+	</div>
+}
+
+func slugHint(s string) string {
+	if s == "" {
+		return "generated-from-title"
+	}
+	return s
+}

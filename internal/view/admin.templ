@@ -1,0 +1,130 @@
+package view
+
+import "github.com/yourname/fiberblog/internal/models"
+
+templ AdminPage(b Base, d AdminData) {
+	@Layout(b) {
+		<div class="page-head">
+			<h1>Admin</h1>
+			<p class="text-light">Site overview and moderation.</p>
+		</div>
+		<div class="stat-grid">
+			@statCard("Users", itoa(d.Stats.Users))
+			@statCard("Published", itoa(d.Stats.Published))
+			@statCard("Drafts", itoa(d.Stats.Drafts))
+			@statCard("Comments", itoa(d.Stats.Comments))
+			@statCard("Likes", itoa(d.Stats.Likes))
+			@statCard("Views", compact(d.Stats.TotalViews))
+		</div>
+		<section class="mt-8" aria-labelledby="users-heading">
+			<h2 id="users-heading">Users</h2>
+			<div class="table">
+				<table>
+					<thead>
+						<tr>
+							<th>User</th>
+							<th>Email</th>
+							<th class="num">Posts</th>
+							<th>Role</th>
+							<th>Joined</th>
+							<th><span class="sr-only">Actions</span></th>
+						</tr>
+					</thead>
+					<tbody>
+						for i := range d.Users {
+							@adminUserRow(b, &d.Users[i])
+						}
+					</tbody>
+				</table>
+			</div>
+			@Pagination(d.Pager)
+		</section>
+		<section class="mt-8" aria-labelledby="comments-heading">
+			<h2 id="comments-heading">Recent comments</h2>
+			if len(d.Comments) == 0 {
+				<p class="text-light">No comments yet.</p>
+			} else {
+				<ul class="comment-list unstyled">
+					for _, c := range d.Comments {
+						<li class="comment">
+							if c.Author != nil {
+								@Avatar(c.Author, "small")
+							}
+							<div class="comment-body">
+								<div class="comment-head">
+									if c.Author != nil {
+										<strong>{ c.Author.Name }</strong>
+									}
+									<span class="text-light">on</span>
+									if c.Post != nil {
+										<a href={ templ.SafeURL(postURL(c.Post) + "#comment-" + itoa(c.ID)) }>{ c.Post.Title }</a>
+									}
+									<time class="text-light" datetime={ isoDate(c.CreatedAt) }>{ timeAgo(c.CreatedAt) }</time>
+									<form method="post" action={ templ.SafeURL("/comments/" + itoa(c.ID) + "/delete") } class="inline-form comment-delete" data-confirm="Delete this comment?">
+										@CSRFField(b.CSRF)
+										<input type="hidden" name="next" value="/admin"/>
+										<button type="submit" class="ghost small" data-variant="danger" aria-label="Delete comment">
+											@iconTrash()
+										</button>
+									</form>
+								</div>
+								<p class="comment-text">{ c.Body }</p>
+							</div>
+						</li>
+					}
+				</ul>
+			}
+		</section>
+	}
+}
+
+templ adminUserRow(b Base, u *models.User) {
+	<tr>
+		<td>
+			<a href={ userURL(u) } class="unstyled hstack gap-2">
+				@Avatar(u, "small")
+				<span>{ u.Name }</span>
+			</a>
+		</td>
+		<td>{ u.Email }</td>
+		<td class="num">{ itoa(u.PostCount) }</td>
+		<td>
+			if u.IsAdmin() {
+				<span class="badge">admin</span>
+			} else {
+				<span class="badge outline">user</span>
+			}
+		</td>
+		<td><time datetime={ isoDate(u.CreatedAt) }>{ formatDate(u.CreatedAt) }</time></td>
+		<td>
+			if b.User != nil && b.User.ID != u.ID {
+				<form method="post" action={ templ.SafeURL("/admin/users/" + itoa(u.ID) + "/role") } class="inline-form">
+					@CSRFField(b.CSRF)
+					if u.IsAdmin() {
+						<input type="hidden" name="role" value={ models.RoleUser }/>
+						<button type="submit" class="outline small">Remove admin</button>
+					} else {
+						<input type="hidden" name="role" value={ models.RoleAdmin }/>
+						<button type="submit" class="outline small">Make admin</button>
+					}
+				</form>
+			}
+		</td>
+	</tr>
+}
+
+templ ErrorPage(b Base, d ErrorData) {
+	@Layout(b) {
+		<section class="error-page">
+			<p class="error-code">{ itoa(d.Code) }</p>
+			<h1>{ d.Title }</h1>
+			if d.Message != "" {
+				<p class="text-light">{ d.Message }</p>
+			}
+			<div class="hstack justify-center mt-6">
+				<a href="/" class="button" data-variant="primary">Go home</a>
+				<button type="button" class="outline" data-history-back>Go back</button>
+			</div>
+		</section>
+	}
+}

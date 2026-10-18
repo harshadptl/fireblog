@@ -1,0 +1,201 @@
+package view
+
+import (
+	"net/url"
+	"strconv"
+
+	"github.com/yourname/fiberblog/internal/models"
+)
+
+templ PostPage(b Base, d PostData) {
+	@Layout(b) {
+		<article class="post" itemscope itemtype="https://schema.org/BlogPosting">
+			if !d.Post.IsPublished() {
+				<div role="alert" data-variant="warning" class="mb-6">
+					<strong>Draft.</strong> Only you{ " " }
+					if b.User != nil && b.User.IsAdmin() && b.User.ID != d.Post.AuthorID {
+						(and other admins){ " " }
+					}
+					can see this post. Publish it from the editor when it's ready.
+				</div>
+			}
+			<header class="post-header">
+				@TagList(d.Post.Tags)
+				<h1 itemprop="headline">{ d.Post.Title }</h1>
+				if d.Post.Excerpt != "" {
+					<p class="post-lede text-light" itemprop="description">{ d.Post.Excerpt }</p>
+				}
+				<div class="post-meta-row">
+					@Byline(d.Post)
+					<span class="text-light meta-views" title="Views">
+						@iconEye()
+						{ compact(d.Post.Views) }
+					</span>
+				</div>
+				if d.CanEdit {
+					<div class="hstack mt-4">
+						<a href={ postEditURL(d.Post) } class="button outline small">
+							@iconPen()
+							Edit
+						</a>
+						@ConfirmAction(ConfirmOpts{
+							ID:      "delete-post",
+							Trigger: "Delete",
+							Title:   "Delete this post?",
+							Message: "This permanently removes the post, its comments and likes.",
+							Action:  postURL(d.Post) + "/delete",
+							CSRF:    b.CSRF,
+							Confirm: "Delete post",
+							Small:   true,
+						})
+					</div>
+				}
+			</header>
+			if d.Post.CoverImage != "" {
+				<figure class="post-cover">
+					<img src={ d.Post.CoverImage } alt="" itemprop="image"/>
+				</figure>
+			}
+			<div class="prose" itemprop="articleBody">
+				@templ.Raw(d.Post.ContentHTML)
+			</div>
+			<footer class="post-actions">
+				if d.Post.IsPublished() {
+					@reactionButton(b, d.Post, "like", d.Liked, d.Post.LikeCount)
+					@reactionButton(b, d.Post, "bookmark", d.Saved, -1)
+				}
+				<button type="button" class="outline small" data-copy={ d.ShareURL } title="Copy link">
+					@iconLink()
+					Copy link
+				</button>
+			</footer>
+		</article>
+		if d.Post.Author != nil {
+			@authorCard(d.Post.Author)
+		}
+		if d.Post.IsPublished() || len(d.Comments) > 0 {
+			@commentsSection(b, d)
+		}
+		if len(d.More) > 0 && d.Post.Author != nil {
+			<section class="more-posts" aria-labelledby="more-heading">
+				<h2 id="more-heading">More from { d.Post.Author.Name }</h2>
+				@PostGrid(d.More)
+			</section>
+		}
+	}
+}
+
+// reactionButton is a like/bookmark toggle. It works as a plain form POST and
+// is upgraded to fetch() by app.js (data-toggle). Anonymous visitors get a
+// link to the sign-in page instead.
+templ reactionButton(b Base, p *models.Post, kind string, active bool, count int) {
+	if b.User == nil {
+		<a class="button small outline" href={ templ.SafeURL(loginNext(postURL(p))) }>
+			@reactionContent(kind, false, count)
+		</a>
+	} else {
+		<form method="post" action={ templ.SafeURL(postURL(p) + "/" + kind) } class="inline-form" data-toggle={ kind }>
+			@CSRFField(b.CSRF)
+			<button type="submit" class={ "small", templ.KV("outline", !active) } aria-pressed={ strconv.FormatBool(active) }>
+				@reactionContent(kind, active, count)
+			</button>
+		</form>
+	}
+}
+
+templ reactionContent(kind string, active bool, count int) {
+	if kind == "like" {
+		@iconHeart()
+		<span data-label>
+			if active {
+				Liked
+			} else {
+				Like
+			}
+		</span>
+		<span class="badge" data-variant="secondary" data-count>{ itoa(count) }</span>
+	} else {
+		@iconBookmark()
+		<span data-label>
+			if active {
+				Saved
+			} else {
+				Save
+			}
+		</span>
+	}
+}
+
+templ authorCard(u *models.User) {
+	<aside class="card author-card">
+		@Avatar(u, "large")
+		<div>
+			<small class="text-light">Written by</small>
+			<h3><a class="unstyled" href={ userURL(u) }>{ u.Name }</a></h3>
+			if u.Bio != "" {
+				<p class="text-light">{ u.Bio }</p>
+			}
+		</div>
+	</aside>
+}
+
+templ commentsSection(b Base, d PostData) {
+	<section id="comments" class="comments" aria-labelledby="comments-heading">
+		<h2 id="comments-heading">{ plural(len(d.Comments), "comment") }</h2>
+		if b.User != nil {
+			<form method="post" action={ templ.SafeURL(postURL(d.Post) + "/comments") } class="card comment-form">
+				@CSRFField(b.CSRF)
+				<div class="comment-form-row">
+					@Avatar(b.User, "small")
+					<label class="grow">
+						<span class="sr-only">Your comment</span>
+						<textarea name="body" rows="3" maxlength="2000" required placeholder="Share your thoughts…"></textarea>
+					</label>
+				</div>
+				<div class="hstack justify-between">
+					<small class="text-light">Plain text. Be kind.</small>
+					<button type="submit" data-variant="primary" class="small">Post comment</button>
+				</div>
+			</form>
+		} else {
+			<div role="alert" class="mb-6">
+				<span><a href={ templ.SafeURL(loginNext(postURL(d.Post) + "#comments")) }>Sign in</a> to join the conversation.</span>
+			</div>
+		}
+		<ol class="comment-list unstyled">
+			for _, c := range d.Comments {
+				<li class="comment" id={ "comment-" + itoa(c.ID) }>
+					if c.Author != nil {
+						@Avatar(c.Author, "small")
+					}
+					<div class="comment-body">
+						<div class="comment-head">
+							if c.Author != nil {
+								<a class="unstyled" href={ userURL(c.Author) }><strong>{ c.Author.Name }</strong></a>
+								if c.AuthorID == d.Post.AuthorID {
+									<span class="badge outline">Author</span>
+								}
+							}
+							<time class="text-light" datetime={ isoDate(c.CreatedAt) } title={ formatDate(c.CreatedAt) }>{ timeAgo(c.CreatedAt) }</time>
+							if canDeleteComment(b.User, &c, d.Post) {
+								<form method="post" action={ templ.SafeURL("/comments/" + itoa(c.ID) + "/delete") } class="inline-form comment-delete" data-confirm="Delete this comment?">
+									@CSRFField(b.CSRF)
+									<button type="submit" class="ghost small" data-variant="danger" aria-label="Delete comment">
+										@iconTrash()
+									</button>
+								</form>
+							}
+						</div>
+						<p class="comment-text">{ c.Body }</p>
+					</div>
+				</li>
+			}
+		</ol>
+	</section>
+}
+
+func canDeleteComment(u *models.User, c *models.Comment, p *models.Post) bool {
+	return u != nil && (u.ID == c.AuthorID || u.ID == p.AuthorID || u.IsAdmin())
+}
+
+func loginNext(next string) string { return "/login?next=" + url.QueryEscape(next) }

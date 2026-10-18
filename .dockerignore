@@ -1,0 +1,9 @@
+.git
+.github
+bin
+tmp
+data
+.env
+*.md
+docker-compose.yml
+*_templ.txt

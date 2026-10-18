@@ -1,0 +1,21 @@
+# Build output
+/bin/
+/tmp/
+
+# Local data (SQLite database, uploads)
+/data/
+
+# Secrets
+.env
+
+# templ dev-mode text files (generated *_templ.go files ARE committed so
+# `go build` works right after cloning; remove the next line's comment to
+# stop committing them)
+*_templ.txt
+# *_templ.go
+
+# Tooling
+coverage.out
+.DS_Store
+.idea/
+.vscode/

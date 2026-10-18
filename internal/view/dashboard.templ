@@ -1,0 +1,140 @@
+package view
+
+import "github.com/yourname/fiberblog/internal/models"
+
+templ DashboardPage(b Base, d DashboardData) {
+	@Layout(b) {
+		<div class="page-head hstack justify-between">
+			<div>
+				<h1>Dashboard</h1>
+				<p class="text-light">Your posts and how they're doing.</p>
+			</div>
+			<a href="/posts/new" class="button" data-variant="primary">
+				@iconPen()
+				New post
+			</a>
+		</div>
+		<div class="stat-grid">
+			@statCard("Published", itoa(d.Stats.Published))
+			@statCard("Drafts", itoa(d.Stats.Drafts))
+			@statCard("Views", compact(d.Stats.Views))
+			@statCard("Likes", itoa(d.Stats.Likes))
+			@statCard("Comments", itoa(d.Stats.Comments))
+		</div>
+		<div class="hstack justify-between mt-8 mb-4">
+			<nav aria-label="Filter posts">
+				<menu class="buttons">
+					@filterLink("All", "", d.Status)
+					@filterLink("Published", models.StatusPublished, d.Status)
+					@filterLink("Drafts", models.StatusDraft, d.Status)
+				</menu>
+			</nav>
+			<a href="/dashboard/saved" class="button ghost small">
+				@iconBookmark()
+				Reading list
+			</a>
+		</div>
+		if len(d.Posts) == 0 {
+			@EmptyState("No posts here", "Posts you write will show up here.") {
+				<a href="/posts/new" class="button" data-variant="primary">Write your first post</a>
+			}
+		} else {
+			<div class="table">
+				<table>
+					<thead>
+						<tr>
+							<th>Title</th>
+							<th>Status</th>
+							<th class="num">Views</th>
+							<th class="num">Likes</th>
+							<th class="num">Comments</th>
+							<th>Updated</th>
+							<th><span class="sr-only">Actions</span></th>
+						</tr>
+					</thead>
+					<tbody>
+						for i := range d.Posts {
+							@dashboardRow(b, &d.Posts[i])
+						}
+					</tbody>
+				</table>
+			</div>
+			@Pagination(d.Pager)
+		}
+	}
+}
+
+templ dashboardRow(b Base, p *models.Post) {
+	<tr>
+		<td class="title-cell">
+			<a href={ postURL(p) }>{ p.Title }</a>
+			@TagList(p.Tags)
+		</td>
+		<td><span class="badge" data-variant={ statusVariant(p.Status) }>{ p.Status }</span></td>
+		<td class="num">{ compact(p.Views) }</td>
+		<td class="num">{ itoa(p.LikeCount) }</td>
+		<td class="num">{ itoa(p.CommentCount) }</td>
+		<td><time datetime={ isoDate(p.UpdatedAt) }>{ timeAgo(p.UpdatedAt) }</time></td>
+		<td>
+			<div class="hstack gap-2 row-actions">
+				<a href={ postEditURL(p) } class="button outline small">Edit</a>
+				@ConfirmAction(ConfirmOpts{
+					ID:      "delete-post-" + itoa(p.ID),
+					Trigger: "",
+					Title:   "Delete “" + p.Title + "”?",
+					Message: "This permanently removes the post, its comments and likes.",
+					Action:  postURL(p) + "/delete",
+					CSRF:    b.CSRF,
+					Next:    "/dashboard",
+					Confirm: "Delete post",
+					Small:   true,
+				})
+			</div>
+		</td>
+	</tr>
+}
+
+templ statCard(label, value string) {
+	<article class="card stat">
+		<small class="text-light">{ label }</small>
+		<strong>{ value }</strong>
+	</article>
+}
+
+templ filterLink(label, status, current string) {
+	<li>
+		if status == current {
+			<a class="button small" aria-current="page" href={ templ.SafeURL(dashboardFilterURL(status)) }>{ label }</a>
+		} else {
+			<a class="button small outline" href={ templ.SafeURL(dashboardFilterURL(status)) }>{ label }</a>
+		}
+	</li>
+}
+
+templ SavedPage(b Base, d SavedData) {
+	@Layout(b) {
+		<div class="page-head">
+			<a href="/dashboard" class="text-light back-link">
+				@iconArrowLeft()
+				Dashboard
+			</a>
+			<h1>Reading list</h1>
+			<p class="text-light">Posts you've saved for later.</p>
+		</div>
+		if len(d.Posts) == 0 {
+			@EmptyState("Nothing saved yet", "Use the Save button on any post to add it here.") {
+				<a href="/" class="button outline">Browse posts</a>
+			}
+		} else {
+			@PostGrid(d.Posts)
+			@Pagination(d.Pager)
+		}
+	}
+}
+
+func statusVariant(status string) string {
+	if status == models.StatusPublished {
+		return "success"
+	}
+	return "warning"
+}

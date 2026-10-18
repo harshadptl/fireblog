@@ -1,0 +1,124 @@
+package view
+
+import "github.com/yourname/fiberblog/internal/models"
+
+templ HomePage(b Base, d HomeData) {
+	@Layout(b) {
+		if d.Query == "" && d.Pager.Number == 1 {
+			<section class="hero">
+				<h1>Ideas worth writing down.</h1>
+				<p class="text-light">
+					Stories, tutorials and notes from the { b.SiteName } community.
+					if b.User == nil {
+						Sign in with Google to start writing.
+					}
+				</p>
+				<div class="hstack">
+					if b.User != nil {
+						<a href="/posts/new" class="button" data-variant="primary">Write a post</a>
+					} else {
+						<a href="/login" class="button" data-variant="primary">Start writing</a>
+					}
+					<a href="/feed.xml" class="button outline">RSS feed</a>
+				</div>
+			</section>
+		}
+		<div class="layout-with-aside">
+			<section aria-labelledby="posts-heading">
+				<div class="section-head">
+					if d.Query != "" {
+						<h2 id="posts-heading">Results for “{ d.Query }”</h2>
+						<span class="text-light">{ plural(d.Pager.Total, "post") }</span>
+					} else {
+						<h2 id="posts-heading">Latest posts</h2>
+					}
+				</div>
+				if len(d.Posts) == 0 {
+					if d.Query != "" {
+						@EmptyState("No matches", "Try a different search term.") {
+							<a href="/" class="button outline">Clear search</a>
+						}
+					} else {
+						@EmptyState("No posts yet", "Be the first to publish something.") {
+							<a href="/posts/new" class="button" data-variant="primary">Write a post</a>
+						}
+					}
+				} else {
+					@PostGrid(d.Posts)
+					@Pagination(d.Pager)
+				}
+			</section>
+			<aside class="side">
+				<article class="card">
+					<h4>Search</h4>
+					<form action="/" method="get" role="search">
+						<fieldset class="group">
+							<input type="search" name="q" value={ d.Query } placeholder="Keywords…" aria-label="Search posts"/>
+							<button type="submit">Go</button>
+						</fieldset>
+					</form>
+				</article>
+				if len(d.PopularTags) > 0 {
+					<article class="card">
+						<h4>Popular tags</h4>
+						@tagCloud(d.PopularTags)
+						<p class="mt-4"><a href="/tags">Browse all tags</a></p>
+					</article>
+				}
+			</aside>
+		</div>
+	}
+}
+
+templ tagCloud(tags []models.Tag) {
+	<ul class="tag-list unstyled">
+		for _, t := range tags {
+			<li>
+				<a class="badge outline" href={ tagURL(t) }>
+					{ "#" + t.Name }
+					<span class="text-light">{ itoa(t.PostCount) }</span>
+				</a>
+			</li>
+		}
+	</ul>
+}
+
+templ TagsPage(b Base, d TagsData) {
+	@Layout(b) {
+		<div class="page-head">
+			<h1>Tags</h1>
+			<p class="text-light">Browse posts by topic.</p>
+		</div>
+		if len(d.Tags) == 0 {
+			@EmptyState("No tags yet", "Tags appear here once posts are published with them.")
+		} else {
+			<div class="tag-grid">
+				for _, t := range d.Tags {
+					<a class="card unstyled tag-tile" href={ tagURL(t) }>
+						<strong>{ "#" + t.Name }</strong>
+						<span class="text-light">{ plural(t.PostCount, "post") }</span>
+					</a>
+				}
+			</div>
+		}
+	}
+}
+
+templ TagPage(b Base, d TagData) {
+	@Layout(b) {
+		<div class="page-head">
+			<a href="/tags" class="text-light back-link">
+				@iconArrowLeft()
+				All tags
+			</a>
+			<h1>{ "#" + d.Tag.Name }</h1>
+			<p class="text-light">{ plural(d.Pager.Total, "post") }</p>
+		</div>
+		if len(d.Posts) == 0 {
+			@EmptyState("Nothing here yet", "No published posts use this tag.")
+		} else {
+			@PostGrid(d.Posts)
+			@Pagination(d.Pager)
+		}
+	}
+}

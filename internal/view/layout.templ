@@ -1,0 +1,140 @@
+package view
+
+// Layout is the HTML shell shared by every page.
+templ Layout(b Base) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ b.PageTitle() }</title>
+			if b.Description != "" {
+				<meta name="description" content={ b.Description }/>
+				<meta property="og:description" content={ b.Description }/>
+			}
+			if b.NoIndex {
+				<meta name="robots" content="noindex"/>
+			}
+			<link rel="canonical" href={ templ.SafeURL(b.Canonical) }/>
+			<meta property="og:site_name" content={ b.SiteName }/>
+			<meta property="og:title" content={ b.PageTitle() }/>
+			<meta property="og:type" content={ b.OGType }/>
+			<meta property="og:url" content={ b.Canonical }/>
+			if b.OGImage != "" {
+				<meta property="og:image" content={ absURL(b.BaseURL, b.OGImage) }/>
+				<meta name="twitter:card" content="summary_large_image"/>
+			}
+			<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"/>
+			<meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)"/>
+			<link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml"/>
+			<link rel="alternate" type="application/rss+xml" title={ b.SiteName } href="/feed.xml"/>
+			<link rel="stylesheet" href={ asset("/static/vendor/oat/oat.min.css") }/>
+			<link rel="stylesheet" href={ asset("/static/css/app.css") }/>
+			<!-- Applies the saved light/dark preference before first paint. -->
+			<script src={ asset("/static/js/theme.js") }></script>
+			<script src={ asset("/static/vendor/oat/oat.min.js") } defer></script>
+			<script src={ asset("/static/js/app.js") } defer></script>
+		</head>
+		<body>
+			<a class="skip-link" href="#main">Skip to content</a>
+			@navbar(b)
+			<main id="main" class="container">
+				<noscript>
+					for _, f := range b.Flashes {
+						<div role="alert" data-variant={ flashVariant(f.Kind) } class="mb-4">{ f.Message }</div>
+					}
+				</noscript>
+				{ children... }
+			</main>
+			@footer(b)
+			if len(b.Flashes) > 0 {
+				<div id="flash-data" hidden data-flashes={ flashesJSON(b.Flashes) }></div>
+			}
+		</body>
+	</html>
+}
+
+templ navbar(b Base) {
+	<header data-topnav class="site-header">
+		<div class="container nav-inner">
+			<a href="/" class="brand unstyled" aria-label={ b.SiteName + " home" }>
+				@iconLogo()
+				<span>{ b.SiteName }</span>
+			</a>
+			<form action="/" method="get" role="search" class="nav-search">
+				<label class="sr-only" for="nav-q">Search posts</label>
+				<input id="nav-q" type="search" name="q" placeholder="Search posts…" autocomplete="off"/>
+			</form>
+			<nav class="nav-links" aria-label="Main">
+				<a
+					href="/tags"
+					class="button ghost small"
+					if isActive(b.Path, "/tags") {
+						aria-current="page"
+					}
+				>Tags</a>
+				if b.User != nil {
+					<a href="/posts/new" class="button small" data-variant="primary">
+						@iconPen()
+						<span class="hide-sm">Write</span>
+					</a>
+				}
+				<button type="button" class="ghost small icon" data-theme-toggle aria-label="Toggle dark mode" title="Toggle dark mode">
+					<span class="icon-light">
+						@iconMoon()
+					</span>
+					<span class="icon-dark">
+						@iconSun()
+					</span>
+				</button>
+				if b.User != nil {
+					@userMenu(b)
+				} else {
+					<a href="/login" class="button small outline">Sign in</a>
+				}
+			</nav>
+		</div>
+	</header>
+}
+
+templ userMenu(b Base) {
+	<ot-dropdown>
+		<button type="button" class="ghost avatar-button" popovertarget="user-menu" aria-label="Account menu">
+			@Avatar(b.User, "small")
+		</button>
+		<menu popover id="user-menu" class="user-menu">
+			<div class="user-menu-head">
+				<strong>{ b.User.Name }</strong>
+				<small class="text-light">{ "@" + b.User.Username }</small>
+			</div>
+			<hr/>
+			<a role="menuitem" href={ userURL(b.User) }>Your profile</a>
+			<a role="menuitem" href="/dashboard">Dashboard</a>
+			<a role="menuitem" href="/dashboard/saved">Reading list</a>
+			<a role="menuitem" href="/settings">Settings</a>
+			if b.User.IsAdmin() {
+				<a role="menuitem" href="/admin">Admin</a>
+			}
+			<hr/>
+			<form method="post" action="/logout">
+				@CSRFField(b.CSRF)
+				<button role="menuitem" type="submit">Sign out</button>
+			</form>
+		</menu>
+	</ot-dropdown>
+}
+
+templ footer(b Base) {
+	<footer class="site-footer">
+		<div class="container footer-inner">
+			<p class="text-light">
+				© { itoa(b.Year) } { b.SiteName }. Built with Fiber, Bun, templ &amp; Oat.
+			</p>
+			<nav class="hstack gap-4" aria-label="Footer">
+				<a href="/tags" class="unstyled text-light">Tags</a>
+				<a href="/feed.xml" class="unstyled text-light">RSS</a>
+				<a href="/sitemap.xml" class="unstyled text-light">Sitemap</a>
+			</nav>
+		</div>
+	</footer>
+}

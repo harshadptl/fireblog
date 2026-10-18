@@ -1,0 +1,183 @@
+package view
+
+templ ProfilePage(b Base, d ProfileData) {
+	@Layout(b) {
+		<section class="profile-head">
+			@Avatar(d.Profile, "large")
+			<div class="grow">
+				<h1>{ d.Profile.Name }</h1>
+				<p class="text-light">
+					{ "@" + d.Profile.Username }
+					if d.Profile.IsAdmin() {
+						<span class="badge outline">Admin</span>
+					}
+					<span class="joined">Joined { formatDate(d.Profile.CreatedAt) }</span>
+				</p>
+				if d.Profile.Bio != "" {
+					<p>{ d.Profile.Bio }</p>
+				}
+				<p class="text-light profile-stats">
+					<span><strong>{ itoa(d.Stats.Published) }</strong> posts</span>
+					<span><strong>{ compact(d.Stats.Views) }</strong> views</span>
+					<span><strong>{ itoa(d.Stats.Likes) }</strong> likes</span>
+				</p>
+			</div>
+			if d.IsSelf {
+				<a href="/settings" class="button outline small">Edit profile</a>
+			}
+		</section>
+		if len(d.Posts) == 0 {
+			@EmptyState("No posts yet", d.Profile.Name+" hasn't published anything yet.")
+		} else {
+			@PostGrid(d.Posts)
+			@Pagination(d.Pager)
+		}
+	}
+}
+
+templ SettingsPage(b Base, d SettingsData) {
+	@Layout(b) {
+		<div class="page-head">
+			<h1>Settings</h1>
+			<p class="text-light">Signed in with Google as <strong>{ b.User.Email }</strong>.</p>
+		</div>
+		<ot-tabs data-anchor="tab" class="settings-tabs">
+			<div role="tablist" aria-label="Settings sections">
+				<button type="button" role="tab" id="profile">Profile</button>
+				<button type="button" role="tab" id="sessions">Sessions</button>
+				<button type="button" role="tab" id="danger">Account</button>
+			</div>
+			<div role="tabpanel">
+				<form method="post" action="/settings" class="card settings-card">
+					@CSRFField(b.CSRF)
+					<div class="hstack mb-4">
+						@Avatar(b.User, "large")
+						<small class="text-light">Your photo comes from your Google account.</small>
+					</div>
+					<div
+						data-field
+						if hasErr(d.Errors, "name") {
+							aria-invalid="true"
+						}
+					>
+						<label for="name">Display name</label>
+						<input id="name" name="name" type="text" value={ d.Form.Name } maxlength="60" required/>
+						@fieldError(d.Errors, "name")
+					</div>
+					<div
+						data-field
+						if hasErr(d.Errors, "username") {
+							aria-invalid="true"
+						}
+					>
+						<label for="username">Username</label>
+						<input id="username" name="username" type="text" value={ d.Form.Username } maxlength="30" required pattern="[a-z0-9][a-z0-9_\-]{2,29}"/>
+						@fieldError(d.Errors, "username")
+						<small data-hint>Your profile lives at /u/{ d.Form.Username }</small>
+					</div>
+					<div
+						data-field
+						if hasErr(d.Errors, "bio") {
+							aria-invalid="true"
+						}
+					>
+						<label for="bio">Bio</label>
+						<textarea id="bio" name="bio" rows="3" maxlength="280" placeholder="A sentence or two about you">{ d.Form.Bio }</textarea>
+						@fieldError(d.Errors, "bio")
+					</div>
+					<footer class="hstack justify-end">
+						<a href={ userURL(b.User) } class="button outline">View profile</a>
+						<button type="submit" data-variant="primary">Save changes</button>
+					</footer>
+				</form>
+			</div>
+			<div role="tabpanel">
+				<article class="card settings-card">
+					<h3>Active sessions</h3>
+					<p class="text-light">Devices currently signed in to your account.</p>
+					<ul class="session-list unstyled">
+						for _, s := range d.Sessions {
+							<li>
+								<div>
+									<strong>{ shortUA(s.UserAgent) }</strong>
+									if s.ID == d.CurrentSessionID {
+										<span class="badge" data-variant="success">This device</span>
+									}
+									<br/>
+									<small class="text-light">Last active { timeAgo(s.LastSeenAt) } from { s.IP }. Signed in { formatDate(s.CreatedAt) }.</small>
+								</div>
+							</li>
+						}
+					</ul>
+					if len(d.Sessions) > 1 {
+						<form method="post" action="/settings/sessions/revoke" class="mt-4">
+							@CSRFField(b.CSRF)
+							<button type="submit" class="outline">Sign out all other sessions</button>
+						</form>
+					}
+				</article>
+			</div>
+			<div role="tabpanel">
+				<article class="card settings-card danger-zone">
+					<h3>Delete account</h3>
+					<p class="text-light">
+						Permanently delete your account, posts, comments and likes. This cannot be undone.
+					</p>
+					<form method="post" action="/settings/delete" data-confirm="Really delete your account? This cannot be undone.">
+						@CSRFField(b.CSRF)
+						<label for="confirm">Type <code>{ b.User.Username }</code> to confirm</label>
+						<input id="confirm" name="confirm" type="text" autocomplete="off" required/>
+						<button type="submit" data-variant="danger" class="mt-4">Delete my account</button>
+					</form>
+				</article>
+			</div>
+		</ot-tabs>
+	}
+}
+
+templ LoginPage(b Base, d LoginData) {
+	@Layout(b) {
+		<div class="auth-wrap">
+			<article class="card auth-card">
+				<header class="align-center">
+					@iconLogo()
+					<h1>Sign in to { b.SiteName }</h1>
+					<p class="text-light">Write posts, comment and save articles for later.</p>
+				</header>
+				if d.GoogleEnabled {
+					<a href={ templ.SafeURL(googleStartURL(d.Next)) } class="button large outline w-100 google-button">
+						@iconGoogle()
+						Continue with Google
+					</a>
+				} else {
+					<div role="alert" data-variant="warning">
+						<span>
+							Google sign-in isn't configured yet. Set <code>GOOGLE_CLIENT_ID</code> and
+							<code>GOOGLE_CLIENT_SECRET</code> in your <code>.env</code> (see README).
+						</span>
+					</div>
+				}
+				if d.DevLogin {
+					<details class="mt-6 dev-login" open?={ !d.GoogleEnabled }>
+						<summary>Developer login</summary>
+						<form method="post" action="/auth/dev-login" class="mt-4">
+							@CSRFField(b.CSRF)
+							<input type="hidden" name="next" value={ d.Next }/>
+							<label>
+								Email
+								<input type="email" name="email" value="admin@example.com" required/>
+							</label>
+							<label class="mt-2">
+								Name
+								<input type="text" name="name" placeholder="Optional"/>
+							</label>
+							<button type="submit" class="w-100 mt-4">Sign in without Google</button>
+							<small class="text-light">Enabled by <code>DEV_LOGIN=true</code>. Never available in production.</small>
+						</form>
+					</details>
+				}
+				<p class="text-light align-center mt-6"><small>By continuing you agree to be excellent to each other.</small></p>
+			</article>
+		</div>
+	}
+}
