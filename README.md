@@ -213,6 +213,10 @@ routes with `h.RequireUser` / `h.RequireAdmin`.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, and the production redirect URI in Google Cloud
 - `BASE_URL=https://…` — enables `Secure` + `__Host-` cookies
 - PostgreSQL `DATABASE_URL`
+- Deploying with Docker Compose: use `docker-compose.prod.yaml`, not `docker-compose.yml` — the
+  latter is dev-only (default Postgres creds, published DB port, `APP_ENV=development`). Run
+  `docker compose -f docker-compose.prod.yaml up -d --build` once `.env` has the values above plus
+  `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB`.
 - Behind a proxy/load balancer: `TRUST_PROXY=true` and `TRUSTED_PROXIES=<cidr>` for real client IPs
 - Persist `UPLOAD_DIR` (a volume), or swap `saveImage` in `internal/handlers/uploads.go` for object storage
 - Commit `go.sum` (created by `make setup`) so CI and Docker builds are reproducible
