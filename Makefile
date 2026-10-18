@@ -66,7 +66,7 @@ docker-down: ## Stop Docker Compose services
 rename: ## Rename the Go module: make rename MODULE=github.com/you/blog
 	@test -n "$(MODULE)" || (echo "usage: make rename MODULE=github.com/you/blog" && exit 1)
 	$(GO) mod edit -module $(MODULE)
-	grep -rl 'github.com/yourname/fiberblog' --include='*.go' --include='*.templ' . | xargs sed -i.bak 's#github.com/yourname/fiberblog#$(MODULE)#g'
+	grep -rl 'github.com/harshadptl/fiberblog' --include='*.go' --include='*.templ' . | xargs sed -i.bak 's#github.com/harshadptl/fiberblog#$(MODULE)#g'
 	find . -name '*.bak' -delete
 	$(TEMPL) generate
 	@echo "Module renamed to $(MODULE)"

@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yourname/fiberblog/internal/markdown"
-	"github.com/yourname/fiberblog/internal/models"
-	"github.com/yourname/fiberblog/internal/store"
-	"github.com/yourname/fiberblog/internal/textutil"
+	"github.com/harshadptl/fiberblog/internal/markdown"
+	"github.com/harshadptl/fiberblog/internal/models"
+	"github.com/harshadptl/fiberblog/internal/store"
+	"github.com/harshadptl/fiberblog/internal/textutil"
 )
 
 type demoPost struct {

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yourname/fiberblog/internal/database"
-	"github.com/yourname/fiberblog/internal/models"
-	"github.com/yourname/fiberblog/internal/store"
+	"github.com/harshadptl/fiberblog/internal/database"
+	"github.com/harshadptl/fiberblog/internal/models"
+	"github.com/harshadptl/fiberblog/internal/store"
 )
 
 // newStore opens an in-memory SQLite database. Set TEST_DATABASE_URL to a

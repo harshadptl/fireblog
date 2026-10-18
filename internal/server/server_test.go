@@ -14,11 +14,11 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/yourname/fiberblog/internal/config"
-	"github.com/yourname/fiberblog/internal/database"
-	"github.com/yourname/fiberblog/internal/seed"
-	"github.com/yourname/fiberblog/internal/server"
-	"github.com/yourname/fiberblog/internal/store"
+	"github.com/harshadptl/fiberblog/internal/config"
+	"github.com/harshadptl/fiberblog/internal/database"
+	"github.com/harshadptl/fiberblog/internal/seed"
+	"github.com/harshadptl/fiberblog/internal/server"
+	"github.com/harshadptl/fiberblog/internal/store"
 )
 
 // client is a tiny cookie-keeping wrapper around app.Test.

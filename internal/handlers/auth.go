@@ -10,9 +10,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/yourname/fiberblog/internal/auth"
-	"github.com/yourname/fiberblog/internal/store"
-	"github.com/yourname/fiberblog/internal/view"
+	"github.com/harshadptl/fiberblog/internal/auth"
+	"github.com/harshadptl/fiberblog/internal/store"
+	"github.com/harshadptl/fiberblog/internal/view"
 )
 
 const (
