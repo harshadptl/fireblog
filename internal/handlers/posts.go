@@ -243,9 +243,13 @@ func (h *Handler) validatePost(f view.PostForm) (store.PostInput, map[string]str
 		errs["tags"] = "Use at most 5 tags."
 	}
 
-	html, err := h.Markdown.Render(f.Content)
-	if err != nil {
-		errs["content"] = "Could not render this Markdown."
+	var html string
+	if len(f.Content) <= maxContentLen {
+		var err error
+		html, err = h.Markdown.Render(f.Content)
+		if err != nil {
+			errs["content"] = "Could not render this Markdown."
+		}
 	}
 	plain := h.Markdown.PlainText(html)
 	excerpt := f.Excerpt

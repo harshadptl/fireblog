@@ -125,13 +125,13 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *fiber.App {
 	// Posts. "/posts/new" must be registered before "/posts/:slug".
 	app.Get("/posts/new", requireUser, handlers.NoStore, h.NewPost)
 	app.Post("/posts", requireUser, writeLimiter, h.CreatePost)
-	app.Post("/preview", requireUser, h.Preview)
+	app.Post("/preview", requireUser, writeLimiter, h.Preview)
 	app.Get("/posts/:slug", h.ShowPost)
 	app.Get("/posts/:slug/edit", requireUser, handlers.NoStore, h.EditPost)
 	app.Post("/posts/:slug", requireUser, writeLimiter, h.UpdatePost)
 	app.Post("/posts/:slug/delete", requireUser, h.DeletePost)
-	app.Post("/posts/:slug/like", requireUser, h.ToggleLike)
-	app.Post("/posts/:slug/bookmark", requireUser, h.ToggleBookmark)
+	app.Post("/posts/:slug/like", requireUser, writeLimiter, h.ToggleLike)
+	app.Post("/posts/:slug/bookmark", requireUser, writeLimiter, h.ToggleBookmark)
 	app.Post("/posts/:slug/comments", requireUser, writeLimiter, h.CreateComment)
 	app.Post("/comments/:id<int>/delete", requireUser, h.DeleteComment)
 
